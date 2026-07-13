@@ -1,8 +1,8 @@
 from rest_framework import views, generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from .models import EC2Instance
-from .serializers import EC2InstanceSerializer
+from .models import EC2Instance, AWSAccount
+from .serializers import EC2InstanceSerializer, AWSAccountSerializer
 from .services import sync_ec2_instances
 
 
@@ -52,4 +52,25 @@ class SyncEC2InstancesView(views.APIView):
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-        
+
+
+class AWSAccountListCreateView(generics.ListCreateAPIView):
+    """
+    GET /api/monitoring/cloud-accounts/
+    Lists all AWS accounts.
+    POST /api/monitoring/cloud-accounts/
+    Connects a new AWS account.
+    """
+    queryset = AWSAccount.objects.all().order_by('id')
+    serializer_class = AWSAccountSerializer
+    permission_classes = [IsAuthenticated]
+
+
+class AWSAccountDestroyView(generics.DestroyAPIView):
+    """
+    DELETE /api/monitoring/cloud-accounts/<id>/
+    Disconnects/deletes an AWS account.
+    """
+    queryset = AWSAccount.objects.all()
+    serializer_class = AWSAccountSerializer
+    permission_classes = [IsAuthenticated]

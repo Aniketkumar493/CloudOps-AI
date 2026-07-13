@@ -22,6 +22,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from apps.infra.views import AWSAccountListCreateView, AWSAccountDestroyView
 
 
 @api_view(['GET'])
@@ -49,8 +50,11 @@ urlpatterns = [
     # ── Auth & Accounts (Phase 1) ─────────────────────────────────────────────
     path('api/auth/', include('apps.accounts.urls')),
 
-    # ── AWS Infrastructure (Phase 2) ──────────────────────────────────────────
     path('api/infra/', include('apps.infra.urls')),
+
+    # ── AWS Cloud Accounts (Phase 2) ──────────────────────────────────────────
+    path('api/monitoring/cloud-accounts/', AWSAccountListCreateView.as_view(), name='cloud_accounts_list_create'),
+    path('api/monitoring/cloud-accounts/<int:pk>/', AWSAccountDestroyView.as_view(), name='cloud_accounts_destroy'),
 
     # ── OpenAPI Schema & Docs ─────────────────────────────────────────────────
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
