@@ -89,9 +89,15 @@ const Sidebar = ({
 
   // Auth Context dynamic binding
   // Checks window.useAuth or window.AuthContext for modular extraction, falling back to props.
-  const useAuthHook = window.useAuth;
-  const AuthContext = window.AuthContext;
-  const auth = useAuthHook ? useAuthHook() : (AuthContext ? useContext(AuthContext) : null);
+  const useFallbackAuth = () => null;
+  const useAuthHook = window.useAuth || useFallbackAuth;
+  const authFromHook = useAuthHook();
+
+  const fallbackContext = React.createContext(null);
+  const contextToUse = window.AuthContext || fallbackContext;
+  const authFromContext = useContext(contextToUse);
+
+  const auth = authFromHook || authFromContext;
   const finalUserName = auth?.user?.name || auth?.username || propUserName;
 
   return (

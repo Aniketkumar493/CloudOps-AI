@@ -2,6 +2,12 @@ import React from 'react'
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import Sidebar from './components/Sidebar/Sidebar'
 import AWSAccounts from './pages/AWSAccounts'
+import Login from './pages/Login'
+import Register from './pages/Register'
+import Dashboard from './pages/Dashboard'
+import EC2Instances from './pages/EC2Instances'
+import InstanceDetail from './pages/InstanceDetail'
+import ProtectedRoute from './components/ProtectedRoute'
 
 // Layout wrapper to include fixed Sidebar and dynamic page outlets
 function Layout() {
@@ -27,8 +33,8 @@ const ComingSoonCard = ({ title }) => (
   </div>
 )
 
-const Dashboard = () => <ComingSoonCard title="Dashboard" />
-const EC2Instances = () => <ComingSoonCard title="EC2 Instances" />
+
+
 const CloudWatch = () => <ComingSoonCard title="CloudWatch" />
 const Alerts = () => <ComingSoonCard title="Alerts" />
 const AutoHealing = () => <ComingSoonCard title="Auto Healing" />
@@ -38,20 +44,29 @@ const Settings = () => <ComingSoonCard title="Settings" />
 function App() {
   return (
     <Routes>
-      <Route path="/" element={<Layout />}>
-        <Route index element={<Navigate to="/dashboard" replace />} />
-        <Route path="dashboard" element={<Dashboard />} />
-        <Route path="aws-accounts" element={<AWSAccounts />} />
-        <Route path="instances" element={<EC2Instances />} />
-        <Route path="cloudwatch" element={<CloudWatch />} />
-        <Route path="alerts" element={<Alerts />} />
-        <Route path="auto-healing" element={<AutoHealing />} />
-        <Route path="logs" element={<ActivityLogs />} />
-        <Route path="settings" element={<Settings />} />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      {/* Public Pages */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+
+      {/* Protected App Layout */}
+      <Route element={<ProtectedRoute />}>
+        <Route path="/" element={<Layout />}>
+          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="aws-accounts" element={<AWSAccounts />} />
+          <Route path="instances" element={<EC2Instances />} />
+          <Route path="instances/:id" element={<InstanceDetail />} />
+          <Route path="cloudwatch" element={<CloudWatch />} />
+          <Route path="alerts" element={<Alerts />} />
+          <Route path="auto-healing" element={<AutoHealing />} />
+          <Route path="logs" element={<ActivityLogs />} />
+          <Route path="settings" element={<Settings />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Route>
       </Route>
     </Routes>
   )
 }
 
 export default App
+

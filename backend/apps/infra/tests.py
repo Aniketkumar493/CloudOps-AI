@@ -211,3 +211,154 @@ class InfraTasksTestCase(TestCase):
             duration_hours=1
         )
 
+
+from rest_framework.test import APITestCase
+from django.urls import reverse
+from datetime import timedelta
+
+class InstanceMetricsHistoryViewTestCase(APITestCase):
+    def setUp(self):
+        # Create user and authenticate
+        self.user = User.objects.create_user(email="test_metrics@example.com", password="Password123")
+        self.client.force_authenticate(user=self.user)
+
+        # Create mock account and instance
+        self.account = AWSAccount.objects.create(
+            name="Metrics Test Account",
+            access_key_id="key123",
+            secret_access_key="secret456",
+            region="us-east-1"
+        )
+        self.instance = EC2Instance.objects.create(
+            account=self.account,
+            instance_id="i-testmetrics123",
+            name="metrics-test-server",
+            state="running",
+            instance_type="t2.micro"
+        )
+
+        # Create metrics historical snapshots
+        self.now = timezone.now()
+        
+        # Snapshot 1 (2 hours ago)
+        CloudWatchMetric.objects.create(
+            instance=self.instance,
+            metric_name='CPUUtilization',
+            timestamp=self.now - timedelta(hours=2),
+            value=15.5
+        )
+        CloudWatchMetric.objects.create(
+            instance=self.instance,
+            metric_name='MemoryUtilization',
+            timestamp=self.now - timedelta(hours=2),
+            value=65.2
+        )
+
+        # Snapshot 2 (1 hour ago)
+        CloudWatchMetric.objects.create(
+            instance=self.instance,
+            metric_name='CPUUtilization',
+            timestamp=self.now - timedelta(hours=1),
+            value=22.4
+        )
+        CloudWatchMetric.objects.create(
+            instance=self.instance,
+            metric_name='DiskUtilization',
+            timestamp=self.now - timedelta(hours=1),
+            value=45.1
+        )
+
+        # Snapshot 3 (30 hours ago - outside default 24h filter)
+        CloudWatchMetric.objects.create(
+            instance=self.instance,
+            metric_name='CPUUtilization',
+            timestamp=self.now - timedelta(hours=30),
+            value=8.0
+        )
+
+        self.url = reverse('instance_metrics_history', kwargs={'pk': self.instance.pk})
+
+    def test_metrics_history_default_24h(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Should only return the 2 data points from the last 24 hours
+        self.assertEqual(len(response.data), 2)
+        
+        # Verify first data point has CPU and Memory but null Disk
+        first_point = response.data[0]
+        self.assertEqual(first_point['cpu_percent'], 15.5)
+        self.assertEqual(first_point['memory_percent'], 65.2)
+        self.assertIsNone(first_point['disk_percent'])
+
+        # Verify second data point has CPU and Disk but null Memory
+        second_point = response.data[1]
+        self.assertEqual(second_point['cpu_percent'], 22.4)
+        self.assertIsNone(second_point['memory_percent'])
+        self.assertEqual(second_point['disk_percent'], 45.1)
+
+    def test_metrics_history_filter_hours(self):
+        # Request 48 hours history to include the older data point
+        response = self.client.get(self.url, {'hours': 48})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 3)
+
+    def test_metrics_history_invalid_hours(self):
+        response = self.client.get(self.url, {'hours': '-5'})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_metrics_history_not_found(self):
+        url_not_found = reverse('instance_metrics_history', kwargs={'pk': 99999})
+        response = self.client.get(url_not_found)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_metrics_history_unauthenticated(self):
+        self.client.force_authenticate(user=None)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+from django.core.management import call_command
+from io import StringIO
+
+class SeedMetricsCommandTestCase(TestCase):
+    def setUp(self):
+        self.account = AWSAccount.objects.create(
+            name="Seed Test Account",
+            access_key_id="k",
+            secret_access_key="s"
+        )
+        self.instance1 = EC2Instance.objects.create(
+            account=self.account,
+            instance_id="i-seed1",
+            state="running"
+        )
+        self.instance2 = EC2Instance.objects.create(
+            account=self.account,
+            instance_id="i-seed2",
+            state="running"
+        )
+
+    def test_seed_metrics_execution(self):
+
+        out = StringIO()
+        # Seed both instances (one will be agentless)
+        call_command('seed_metrics', stdout=out)
+        output = out.getvalue()
+        
+        # Verify output message and database rows created
+        self.assertIn("Created 1152 metric snapshots", output)
+        self.assertEqual(CloudWatchMetric.objects.filter(instance=self.instance1).count(), 288) # Agentless
+        self.assertEqual(CloudWatchMetric.objects.filter(instance=self.instance2).count(), 864) # Agent installed
+        
+        # Run again without force (should warning skip)
+        out_warn = StringIO()
+        call_command('seed_metrics', stdout=out_warn)
+        self.assertIn("Skipping instance i-seed1", out_warn.getvalue())
+        
+        # Run with force (should overwrite successfully)
+        out_force = StringIO()
+        call_command('seed_metrics', force=True, stdout=out_force)
+        self.assertIn("Overwriting existing metrics", out_force.getvalue())
+        self.assertEqual(CloudWatchMetric.objects.filter(instance=self.instance1).count(), 288)
+
+

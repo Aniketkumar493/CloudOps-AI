@@ -22,7 +22,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from apps.infra.views import AWSAccountListCreateView, AWSAccountDestroyView
+from apps.infra.views import AWSAccountListCreateView, AWSAccountDestroyView, EC2InstanceListView, SyncEC2InstancesView, InstanceMetricsHistoryView
 
 
 @api_view(['GET'])
@@ -55,6 +55,9 @@ urlpatterns = [
     # ── AWS Cloud Accounts (Phase 2) ──────────────────────────────────────────
     path('api/monitoring/cloud-accounts/', AWSAccountListCreateView.as_view(), name='cloud_accounts_list_create'),
     path('api/monitoring/cloud-accounts/<int:pk>/', AWSAccountDestroyView.as_view(), name='cloud_accounts_destroy'),
+    path('api/monitoring/instances/', EC2InstanceListView.as_view(), name='monitoring_instances_list'),
+    path('api/monitoring/instances/sync/', SyncEC2InstancesView.as_view(), name='monitoring_instances_sync'),
+    path('api/monitoring/instances/<int:pk>/metrics/', InstanceMetricsHistoryView.as_view(), name='monitoring_instance_metrics_history'),
 
     # ── OpenAPI Schema & Docs ─────────────────────────────────────────────────
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),

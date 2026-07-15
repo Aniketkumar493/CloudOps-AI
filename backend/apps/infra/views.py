@@ -1,7 +1,10 @@
+from django.utils import timezone
+from datetime import timedelta
+from django.shortcuts import get_object_or_404
 from rest_framework import views, generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from .models import EC2Instance, AWSAccount
+from .models import EC2Instance, AWSAccount, CloudWatchMetric
 from .serializers import EC2InstanceSerializer, AWSAccountSerializer
 from .services import sync_ec2_instances
 
@@ -74,3 +77,76 @@ class AWSAccountDestroyView(generics.DestroyAPIView):
     queryset = AWSAccount.objects.all()
     serializer_class = AWSAccountSerializer
     permission_classes = [IsAuthenticated]
+
+
+class InstanceMetricsHistoryView(views.APIView):
+    """
+    GET /api/monitoring/instances/<int:pk>/metrics/
+    Powers the CPU/Memory/Disk utilization charts on the frontend InstanceDetail page.
+    Queries the CloudWatchMetric history (grouped and grouped by timestamp) for the given instance.
+    Enforces user authentication, and checks account ownership if supported.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk, *args, **kwargs):
+        # Fetch the instance, returning 404 if not found
+        instance = get_object_or_404(EC2Instance, pk=pk)
+
+        # Enforce account ownership logic if supported in the schema
+        account = instance.account
+        owner_field = None
+        for field in ['user', 'owner', 'created_by']:
+            if hasattr(account, field):
+                owner_field = field
+                break
+
+        if owner_field:
+            owner = getattr(account, owner_field)
+            if owner != request.user:
+                return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Parse hours query parameter (default to 24)
+        hours_param = request.query_params.get('hours', '24')
+        try:
+            hours = int(hours_param)
+            if hours <= 0:
+                raise ValueError()
+        except ValueError:
+            return Response(
+                {"error": "Query parameter 'hours' must be a positive integer."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Filter CloudWatchMetric by timestamp and order ascending
+        cutoff_time = timezone.now() - timedelta(hours=hours)
+        metrics = CloudWatchMetric.objects.filter(
+            instance=instance,
+            timestamp__gte=cutoff_time
+        ).order_by('timestamp')
+
+        # Group metrics by timestamp. CloudWatchMetric stores separate rows for CPU, Memory, Disk.
+        # We group them so that each timestamp returns exactly one combined record.
+        grouped_data = {}
+        for metric in metrics:
+            ts_str = metric.timestamp.isoformat()
+            if ts_str not in grouped_data:
+                grouped_data[ts_str] = {
+                    "timestamp": ts_str,
+                    "cpu_percent": None,
+                    "memory_percent": None,
+                    "disk_percent": None
+                }
+
+            name = metric.metric_name
+            val = round(metric.value, 2)
+            if name == 'CPUUtilization':
+                grouped_data[ts_str]["cpu_percent"] = val
+            elif name in ['MemoryUtilization', 'Memory%']:
+                grouped_data[ts_str]["memory_percent"] = val
+            elif name in ['DiskUtilization', 'Disk%', 'DiskSpaceUtilization']:
+                grouped_data[ts_str]["disk_percent"] = val
+
+        # Convert grouped dictionary to a sorted list by timestamp
+        sorted_response = sorted(grouped_data.values(), key=lambda x: x["timestamp"])
+
+        return Response(sorted_response, status=status.HTTP_200_OK)

@@ -27,13 +27,30 @@ class AWSAccountSerializer(serializers.ModelSerializer):
 
 class EC2InstanceSerializer(serializers.ModelSerializer):
     account_name = serializers.CharField(source='account.name', read_only=True)
+    region = serializers.CharField(source='account.region', read_only=True)
+    cpu_utilization = serializers.SerializerMethodField()
+    memory_utilization = serializers.SerializerMethodField()
+    disk_utilization = serializers.SerializerMethodField()
 
     class Meta:
         model = EC2Instance
         fields = [
-            'id', 'account', 'account_name', 'instance_id', 'name', 'state',
-            'instance_type', 'public_ip', 'private_ip', 'launch_time', 'last_synced'
+            'id', 'account', 'account_name', 'region', 'instance_id', 'name', 'state',
+            'instance_type', 'public_ip', 'private_ip', 'launch_time', 'last_synced',
+            'cpu_utilization', 'memory_utilization', 'disk_utilization'
         ]
+
+    def get_cpu_utilization(self, obj):
+        metric = obj.metrics.filter(metric_name='CPUUtilization').order_by('-timestamp').first()
+        return round(metric.value, 2) if metric else None
+
+    def get_memory_utilization(self, obj):
+        metric = obj.metrics.filter(metric_name__in=['MemoryUtilization', 'Memory%']).order_by('-timestamp').first()
+        return round(metric.value, 2) if metric else None
+
+    def get_disk_utilization(self, obj):
+        metric = obj.metrics.filter(metric_name__in=['DiskUtilization', 'Disk%', 'DiskSpaceUtilization']).order_by('-timestamp').first()
+        return round(metric.value, 2) if metric else None
 
 
 class CloudWatchMetricSerializer(serializers.ModelSerializer):

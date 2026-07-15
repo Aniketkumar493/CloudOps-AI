@@ -9,6 +9,8 @@ urlpatterns = [
     # ── JWT Authentication ───────────────────────────────────────────────────
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('login/', TokenObtainPairView.as_view(), name='token_obtain_pair_alias'),
+    path('refresh/', TokenRefreshView.as_view(), name='token_refresh_alias'),
 
     # ── User Registration & Profile ──────────────────────────────────────────
     path('register/', UserRegistrationView.as_view(), name='user_register'),
