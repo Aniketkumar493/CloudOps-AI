@@ -8,6 +8,9 @@ import Dashboard from './pages/Dashboard'
 import EC2Instances from './pages/EC2Instances'
 import InstanceDetail from './pages/InstanceDetail'
 import ProtectedRoute from './components/ProtectedRoute'
+import Alerts from './pages/Alerts'
+import AutoHealing from './pages/AutoHealing'
+import ActivityLogs from './pages/ActivityLogs'
 
 // Layout wrapper to include fixed Sidebar and dynamic page outlets
 function Layout() {
@@ -36,9 +39,6 @@ const ComingSoonCard = ({ title }) => (
 
 
 const CloudWatch = () => <ComingSoonCard title="CloudWatch" />
-const Alerts = () => <ComingSoonCard title="Alerts" />
-const AutoHealing = () => <ComingSoonCard title="Auto Healing" />
-const ActivityLogs = () => <ComingSoonCard title="Activity Logs" />
 const Settings = () => <ComingSoonCard title="Settings" />
 
 function App() {

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import AWSAccount, EC2Instance, CloudWatchMetric
+from .models import AWSAccount, EC2Instance, CloudWatchMetric, HealingEvent
 
 
 class AWSAccountSerializer(serializers.ModelSerializer):
@@ -59,3 +59,16 @@ class CloudWatchMetricSerializer(serializers.ModelSerializer):
     class Meta:
         model = CloudWatchMetric
         fields = ['id', 'instance', 'instance_id', 'metric_name', 'timestamp', 'value', 'unit']
+
+
+class HealingEventSerializer(serializers.ModelSerializer):
+    instance_name = serializers.CharField(source='instance.name', read_only=True)
+    instance_aws_id = serializers.CharField(source='instance.instance_id', read_only=True)
+
+    class Meta:
+        model = HealingEvent
+        fields = [
+            'id', 'instance', 'instance_name', 'instance_aws_id',
+            'triggered_at', 'reason', 'action_taken', 'status', 'notes'
+        ]
+

@@ -22,7 +22,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from apps.infra.views import AWSAccountListCreateView, AWSAccountDestroyView, EC2InstanceListView, SyncEC2InstancesView, InstanceMetricsHistoryView
+from apps.infra.views import AWSAccountListCreateView, AWSAccountDestroyView, EC2InstanceListView, SyncEC2InstancesView, InstanceMetricsHistoryView, HealingEventListView
 
 
 @api_view(['GET'])
@@ -58,6 +58,7 @@ urlpatterns = [
     path('api/monitoring/instances/', EC2InstanceListView.as_view(), name='monitoring_instances_list'),
     path('api/monitoring/instances/sync/', SyncEC2InstancesView.as_view(), name='monitoring_instances_sync'),
     path('api/monitoring/instances/<int:pk>/metrics/', InstanceMetricsHistoryView.as_view(), name='monitoring_instance_metrics_history'),
+    path('api/monitoring/healing-events/', HealingEventListView.as_view(), name='monitoring_healing_events_list'),
 
     # ── OpenAPI Schema & Docs ─────────────────────────────────────────────────
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),

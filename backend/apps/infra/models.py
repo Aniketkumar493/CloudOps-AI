@@ -1,4 +1,6 @@
 from django.db import models
+from django.utils import timezone
+
 
 
 class AWSAccount(models.Model):
@@ -63,3 +65,23 @@ class CloudWatchMetric(models.Model):
 
     def __str__(self):
         return f"{self.instance.instance_id} - {self.metric_name}: {self.value} at {self.timestamp}"
+
+
+class HealingEvent(models.Model):
+    """
+    HealingEvent stores records of auto-healing actions performed on EC2 instances.
+    """
+    instance = models.ForeignKey(
+        EC2Instance,
+        on_delete=models.CASCADE,
+        related_name='healing_events'
+    )
+    triggered_at = models.DateTimeField(default=timezone.now)
+    reason = models.CharField(max_length=255)
+    action_taken = models.CharField(max_length=255)
+    status = models.CharField(max_length=50)  # e.g., 'success', 'failed'
+    notes = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.instance.instance_id} - {self.action_taken} ({self.status})"
+

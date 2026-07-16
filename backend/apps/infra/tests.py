@@ -7,7 +7,7 @@ from rest_framework.test import APIClient
 from rest_framework import status
 
 from apps.accounts.models import User, Team
-from .models import AWSAccount, EC2Instance, CloudWatchMetric
+from .models import AWSAccount, EC2Instance, CloudWatchMetric, HealingEvent
 from .services import sync_ec2_instances, fetch_cloudwatch_metrics, list_ec2_instances
 from .tasks import sync_all_accounts_ec2_task, fetch_all_instances_metrics_task
 
@@ -360,5 +360,96 @@ class SeedMetricsCommandTestCase(TestCase):
         call_command('seed_metrics', force=True, stdout=out_force)
         self.assertIn("Overwriting existing metrics", out_force.getvalue())
         self.assertEqual(CloudWatchMetric.objects.filter(instance=self.instance1).count(), 288)
+
+
+class HealingEventListViewTestCase(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="ops-healing@cloudops.ai",
+            password="SecurePassword123!"
+        )
+        self.account = AWSAccount.objects.create(
+            name="Test Account",
+            access_key_id="test-key",
+            secret_access_key="test-secret",
+            region="us-east-1"
+        )
+        self.instance1 = EC2Instance.objects.create(
+            account=self.account,
+            instance_id="i-healing1",
+            name="App-Server-Prod",
+            state="running"
+        )
+        self.instance2 = EC2Instance.objects.create(
+            account=self.account,
+            instance_id="i-healing2",
+            name="Db-Server-Prod",
+            state="running"
+        )
+        
+        self.event_success = HealingEvent.objects.create(
+            instance=self.instance1,
+            triggered_at=timezone.now() - timedelta(hours=1),
+            reason="CPU Utilization > 90%",
+            action_taken="Reboot Instance",
+            status="success",
+            notes="Recovered automatically"
+        )
+        self.event_failed = HealingEvent.objects.create(
+            instance=self.instance2,
+            triggered_at=timezone.now() - timedelta(hours=2),
+            reason="Disk Space > 95%",
+            action_taken="Reboot Instance",
+            status="failed",
+            notes="Instance did not recover"
+        )
+        
+        self.url = reverse('monitoring_healing_events_list')
+
+    def test_list_healing_events_unauthenticated(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_list_healing_events_authenticated(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Check defaults pagination results
+        self.assertIn('results', response.data)
+        self.assertEqual(len(response.data['results']), 2)
+
+    def test_list_healing_events_filter_status(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url, {'status': 'success'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 1)
+        self.assertEqual(response.data['results'][0]['status'], 'success')
+        self.assertEqual(response.data['results'][0]['instance_name'], 'App-Server-Prod')
+
+    def test_list_healing_events_search_instance(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url, {'search': 'Db-Server'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 1)
+        self.assertEqual(response.data['results'][0]['instance_name'], 'Db-Server-Prod')
+
+
+class SeedHealingEventsCommandTestCase(TestCase):
+    def test_seed_healing_events_execution(self):
+        out = StringIO()
+        call_command('seed_healing_events', stdout=out)
+        output = out.getvalue()
+        
+        # Verify default instances are ensured and events seeded
+        self.assertIn("Ensured at least 4 EC2 instances", output)
+        self.assertIn("Successfully seeded 15 Healing Events", output)
+        self.assertEqual(HealingEvent.objects.count(), 15)
+
+        # Run with force
+        out_force = StringIO()
+        call_command('seed_healing_events', force=True, stdout=out_force)
+        self.assertIn("Clearing existing Healing Events", out_force.getvalue())
+        self.assertEqual(HealingEvent.objects.count(), 15)
+
 
 

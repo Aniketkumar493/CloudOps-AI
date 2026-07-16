@@ -4,8 +4,9 @@ from django.shortcuts import get_object_or_404
 from rest_framework import views, generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from .models import EC2Instance, AWSAccount, CloudWatchMetric
-from .serializers import EC2InstanceSerializer, AWSAccountSerializer
+from django.db.models import Q
+from .models import EC2Instance, AWSAccount, CloudWatchMetric, HealingEvent
+from .serializers import EC2InstanceSerializer, AWSAccountSerializer, HealingEventSerializer
 from .services import sync_ec2_instances
 
 
@@ -150,3 +151,32 @@ class InstanceMetricsHistoryView(views.APIView):
         sorted_response = sorted(grouped_data.values(), key=lambda x: x["timestamp"])
 
         return Response(sorted_response, status=status.HTTP_200_OK)
+
+
+class HealingEventListView(generics.ListAPIView):
+    """
+    GET /api/monitoring/healing-events/
+    Lists all auto-healing events, with optional query parameters:
+      - status: filter by status (success/failed)
+      - search: filter by instance name or ID
+    Ordered by triggered_at descending.
+    """
+    serializer_class = HealingEventSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = HealingEvent.objects.all().select_related('instance').order_by('-triggered_at')
+        
+        status_param = self.request.query_params.get('status')
+        if status_param and status_param.lower() != 'all':
+            queryset = queryset.filter(status__iexact=status_param)
+            
+        search_param = self.request.query_params.get('search')
+        if search_param:
+            queryset = queryset.filter(
+                Q(instance__name__icontains=search_param) |
+                Q(instance__instance_id__icontains=search_param)
+            )
+            
+        return queryset
+
