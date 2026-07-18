@@ -1,0 +1,103 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# ARCHITECTURE NOTE FOR PRODUCTION DEPLOYMENTS:
+# In a real production environment on AWS, a self-managed PostgreSQL StatefulSet 
+# should be replaced with a managed database service like AWS RDS (Relational 
+# Database Service).
+#
+# Why AWS RDS is preferred over self-managed K8s StatefulSet for Postgres:
+# 1. Managed Backups: RDS provides automated point-in-time recovery and snapshot backups 
+#    without manual script configuration or volume management.
+# 2. Automated Failover: High-availability multi-AZ configuration handles failover 
+#    automatically in seconds if a database node or availability zone goes down.
+# 3. Patching and Maintenance: Minor version upgrades and OS security patches are applied 
+#    automatically during scheduled maintenance windows, reducing operational overhead.
+# 4. Independent Scaling: Database compute and storage can be scaled independently of the 
+#    Kubernetes cluster resources, minimizing resource contention.
+# ══════════════════════════════════════════════════════════════════════════════
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  namespace: cloudops-ai
+  labels:
+    app: db
+spec:
+  ports:
+  - port: 5432
+    targetPort: 5432
+    name: db
+  clusterIP: None
+  selector:
+    app: db
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: db
+  namespace: cloudops-ai
+spec:
+  serviceName: db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:16
+        ports:
+        - containerPort: 5432
+          name: db
+        env:
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: cloudops-config
+              key: DB_NAME
+        - name: POSTGRES_USER
+          valueFrom:
+            configMapKeyRef:
+              name: cloudops-config
+              key: DB_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: cloudops-secrets
+              key: DB_PASSWORD
+        volumeMounts:
+        - name: pgdata
+          mountPath: /var/lib/postgresql/data
+        # Standard Postgres readiness check using pg_isready tool
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - $(POSTGRES_USER)
+            - -d
+            - $(POSTGRES_DB)
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - $(POSTGRES_USER)
+            - -d
+            - $(POSTGRES_DB)
+          initialDelaySeconds: 15
+          periodSeconds: 20
+  volumeClaimTemplates:
+  - metadata:
+      name: pgdata
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 5Gi

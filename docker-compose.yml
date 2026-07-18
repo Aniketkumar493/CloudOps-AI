@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16
+    container_name: cloudops-db
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=cloudops
+      - POSTGRES_USER=cloudops
+      - POSTGRES_PASSWORD=cloudops
+    ports:
+      - "5433:5432"  # Map container port 5432 to host port 5433 to align with backend/.env
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cloudops"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: cloudops-redis
+    ports:
+      - "6379:6379"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cloudops-backend
+    env_file:
+      - backend/.env
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - ALLOWED_HOSTS=*
+      - SECURE_SSL_REDIRECT=False
+      - DJANGO_SETTINGS_MODULE=cloudops_backend.settings.production
+    command: >
+      sh -c "python manage.py migrate &&
+             gunicorn cloudops_backend.wsgi:application --bind 0.0.0.0:8000"
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cloudops-celery-worker
+    env_file:
+      - backend/.env
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - SECURE_SSL_REDIRECT=False
+      - DJANGO_SETTINGS_MODULE=cloudops_backend.settings.production
+    command: celery -A cloudops_backend worker -l info
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cloudops-celery-beat
+    env_file:
+      - backend/.env
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - SECURE_SSL_REDIRECT=False
+      - DJANGO_SETTINGS_MODULE=cloudops_backend.settings.production
+    command: celery -A cloudops_backend beat -l info
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: cloudops-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:

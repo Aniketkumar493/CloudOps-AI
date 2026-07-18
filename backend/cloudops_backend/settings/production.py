@@ -20,7 +20,7 @@ ALLOWED_HOSTS = [host.strip() for host in config('ALLOWED_HOSTS', default='').sp
 
 # ── HTTPS / Security Headers ───────────────────────────────────────────────────
 # Redirect all HTTP requests to HTTPS
-SECURE_SSL_REDIRECT = True
+SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=True, cast=bool)
 
 # HSTS: tell browsers to only use HTTPS for 1 year
 SECURE_HSTS_SECONDS = 31_536_000

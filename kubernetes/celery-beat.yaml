@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-beat
+  namespace: cloudops-ai
+  labels:
+    app: celery-beat
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate # Ensures only one instance runs at a time during rollouts
+  selector:
+    matchLabels:
+      app: celery-beat
+  template:
+    metadata:
+      labels:
+        app: celery-beat
+    spec:
+      containers:
+      - name: celery-beat
+        image: cloudops-backend:latest
+        command: ["celery", "-A", "cloudops_backend", "beat", "-l", "info"]
+        envFrom:
+        - configMapRef:
+            name: cloudops-config
+        - secretRef:
+            name: cloudops-secrets
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "64Mi"
+          limits:
+            cpu: "150m"
+            memory: "128Mi"

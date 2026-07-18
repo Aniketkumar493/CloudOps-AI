@@ -1,0 +1,39 @@
+# Exclude Python virtual environments
+venv/
+.venv/
+env/
+.env/
+
+# Exclude Python cache and compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Exclude git repository files
+.git/
+.gitignore
+.gitattributes
+
+# Exclude local environment configurations
+.env
+.env.*
+!.env.example
+
+# Exclude test cache and reports
+.pytest_cache/
+.coverage
+htmlcov/
+nosetests.xml
+coverage.xml
+
+# Exclude OS generated files
+.DS_Store
+Thumbs.db
+
+# Exclude node modules if any
+node_modules/
+
+# Exclude static files generated locally
+staticfiles/
+db.sqlite3

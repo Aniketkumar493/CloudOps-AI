@@ -1,0 +1,20 @@
+# Exclude node modules
+node_modules/
+
+# Exclude local build directory
+dist/
+build/
+
+# Exclude git repository files
+.git/
+.gitignore
+.gitattributes
+
+# Exclude local environment files
+.env
+.env.*
+!.env.example
+
+# Exclude OS files
+.DS_Store
+Thumbs.db

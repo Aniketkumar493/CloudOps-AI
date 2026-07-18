@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudops-config
+  namespace: cloudops-ai
+data:
+  DB_HOST: "db"
+  DB_PORT: "5432"
+  DB_NAME: "cloudops"
+  DB_USER: "cloudops"
+  REDIS_HOST: "redis"
+  CELERY_BROKER_URL: "redis://redis:6379/0"
+  CELERY_RESULT_BACKEND: "redis://redis:6379/0"
+  ALLOWED_HOSTS: "*"
+  SECURE_SSL_REDIRECT: "False"
+  DJANGO_SETTINGS_MODULE: "cloudops_backend.settings.production"
+  CORS_ALLOWED_ORIGINS: "http://localhost:5173,http://127.0.0.1:5173"

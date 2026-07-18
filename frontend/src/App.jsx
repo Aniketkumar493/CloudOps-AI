@@ -11,6 +11,8 @@ import ProtectedRoute from './components/ProtectedRoute'
 import Alerts from './pages/Alerts'
 import AutoHealing from './pages/AutoHealing'
 import ActivityLogs from './pages/ActivityLogs'
+import CloudWatch from './pages/CloudWatch'
+import Settings from './pages/Settings'
 
 // Layout wrapper to include fixed Sidebar and dynamic page outlets
 function Layout() {
@@ -26,20 +28,11 @@ function Layout() {
   )
 }
 
-// Stylized Placeholder components for future phases
-const ComingSoonCard = ({ title }) => (
-  <div className="flex flex-col items-center justify-center py-20 px-4 border border-slate-800 bg-slate-900/30 rounded-2xl text-center space-y-4">
-    <div className="text-xl md:text-2xl font-bold text-white">{title}</div>
-    <p className="text-xs text-slate-500 max-w-sm">
-      This section is currently under active development as part of the CloudOps-AI roadmap. Stay tuned!
-    </p>
-  </div>
-)
 
 
 
-const CloudWatch = () => <ComingSoonCard title="CloudWatch" />
-const Settings = () => <ComingSoonCard title="Settings" />
+
+
 
 function App() {
   return (
